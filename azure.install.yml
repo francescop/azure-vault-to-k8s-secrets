@@ -1,0 +1,96 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: fp-test
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: azure-vault-to-secret-sa
+  namespace: fp-test
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: azure-vault-to-secret-role
+  namespace: fp-test
+rules:
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+---
+kind: RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: azure-vault-to-secret-rolebinding
+  namespace: fp-test
+subjects:
+  - kind: ServiceAccount
+    name: azure-vault-to-secret-sa
+roleRef:
+  kind: Role
+  name: azure-vault-to-secret-role
+  apiGroup: rbac.authorization.k8s.io
+---
+# OPTIONAL: insert b64 encoded azure credentials here
+apiVersion: v1
+kind: Secret
+metadata:
+  name: azure-vault-credentials
+  namespace: fp-test
+type: Opaque
+data:
+  AZURE_CLIENT_ID:
+  AZURE_CLIENT_SECRET:
+  AZURE_TENANT_ID:
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: azure-vault-to-secret-deployment
+  namespace: fp-test
+spec:
+  selector:
+      matchLabels:
+        app: azure-vault-to-secret
+  template:
+    metadata:
+      labels:
+        app: azure-vault-to-secret
+    spec:
+      serviceAccountName: azure-vault-to-secret-sa
+      automountServiceAccountToken: true
+      containers:
+        - name: azure-vault-to-secret
+          image: francescopalazzini/azure-vault-to-k8s-secrets:latest
+          imagePullPolicy: Always
+          env:
+            - name: DRY_RUN
+              value: "1"
+            - name: AZURE_CLIENT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: azure-vault-credentials
+                  key: AZURE_CLIENT_ID
+            - name: AZURE_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: azure-vault-credentials
+                  key: AZURE_CLIENT_SECRET
+            - name: AZURE_TENANT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: azure-vault-credentials
+                  key: AZURE_TENANT_ID
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  namespace: fp-test
+  name: secret-to-map
+  annotations:
+    get-secrets-from-vault: "https://your-vault.vault.azure.net/"
+    get-secrets-from-vault-camel-to-snake-case: "true"
+    get-secrets-from-vault-lower-to-upper-case: "true"
+type: Opaque
