@@ -1,0 +1,8 @@
+version: '3'
+
+services:
+  azure:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: francescopalazzini/azure-vault-to-k8s-secrets:${TAG:-latest}

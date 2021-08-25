@@ -1,0 +1,4 @@
+azure-keyvault-secrets
+azure-identity
+kubernetes
+inflection
